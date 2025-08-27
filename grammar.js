@@ -16,8 +16,10 @@ module.exports = grammar({
     main: $ => seq("main", $._args, $._block),
     _args: $ => seq("(", repeat( "arg"), ")"),
     _block: $ => seq("{", repeat(seq($.command, ";")) ,"}"),
-    command: $=> (choice($._block, "skip")),
-    _intexp: $ => 
-    
+    command: $=> (choice($._block, "skip", $.intexp)),
+    intexp: $ => choice((seq("(", $._int_operation, ")"), $._num)),
+    _int_operation: $=> choice (seq($._num, "+", $._num),seq($._num, "/",$._num),
+                                seq($._num, "*", $._num),seq($._num, "-", $._num),),   
+    _num: $ => "num"
   }
 });
