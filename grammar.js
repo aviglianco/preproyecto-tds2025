@@ -12,6 +12,12 @@ module.exports = grammar({
 
   rules: {
     // TODO: add the actual grammar rules
-    source_file: $ => "hello"
+    source_file: $ => choice( seq("void", $.main)),
+    main: $ => seq("main", $._args, $._block),
+    _args: $ => seq("(", repeat( "arg"), ")"),
+    _block: $ => seq("{", repeat(seq($.command, ";")) ,"}"),
+    command: $=> (choice($._block, "skip")),
+    _intexp: $ => 
+    
   }
 });
