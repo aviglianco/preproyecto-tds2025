@@ -8,7 +8,7 @@
 // @ts-check
 
 module.exports = grammar({
-  name: "parser",
+  name: "preprojectlang",
 
   rules: {
     source_file: $ => choice(seq(choice($._void_type, $._int_type), $.main)),
