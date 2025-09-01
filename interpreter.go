@@ -3,8 +3,9 @@ package main
 import (
 	"fmt"
 
+	parserlang "compilador/bindings/go"
+
 	sitter "github.com/tree-sitter/go-tree-sitter"
-	parserlang "github.com/tree-sitter/tree-sitter-parser/bindings/go"
 )
 
 func main() {
@@ -24,6 +25,8 @@ func main() {
 	defer tree.Close()
 
 	root := tree.RootNode()
+
+	fmt.Println(root.ToSexp())
 
 	program, err := BuildProgram(root, code)
 	if err != nil {
