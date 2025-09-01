@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	parserlang "compilador/bindings/go"
-
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
