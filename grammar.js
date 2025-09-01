@@ -22,12 +22,12 @@ export default grammar({
     _type: $ => choice($._int_type, $._bool_type),
     _block: $ => seq("{", repeat(seq($._statement, ";")), "}"),
     identifier: _$ => /[a-z][a-z,0-9]*/,
-    _statement: $ => (choice($.return_statement, "skip", $.declaration_statement, $.assignment_statement, $._intexp1)),
+    _statement: $ => (choice($.return_statement, "skip", $.declaration_statement, $.assignment_statement, $._expression)),
 
-    declaration_statement: $ => seq($._type, $._identifier),
-    assignment_statement: $ => seq($._identifier, "=", $._intexp1),
+    declaration_statement: $ => seq($._type, $.identifier),
+    assignment_statement: $ => seq($.identifier, "=", $._expression),
 
-    return_statement: $ => seq("return", optional($._intexp1)),
+    return_statement: $ => seq("return", optional($._expression)),
 
     _int_operation: $ => choice(
       $.int_proc,
@@ -41,8 +41,8 @@ export default grammar({
     int_sum: $ => prec.right(3, seq($._expression, "+", $._expression)),
     int_sub: $ => prec.right(4, seq($._expression, "-", $._expression)),
 
-    _exp: $ => choice($._int_operation, $.num, $._bool_const, $._identifier),
-    _expression: $ => choice($._intexp2, seq("(", $._expression, ")")),
+    _exp: $ => choice($._int_operation, $.num, $._bool_const, $.identifier),
+    _expression: $ => choice($._exp, seq("(", $._expression, ")")),
 
     true: _$ => "true",
     false: _$ => "false",
