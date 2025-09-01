@@ -11,18 +11,34 @@ export default grammar({
   name: "preprojectlang",
 
   rules: {
-    source_file: ($) => choice(seq(choice($._void_type, $._int_type), $.main)),
-    main: ($) => seq("main", field("args", $.args), field("block", $._block)),
+    // ────────────────────────────────────────────────────────────────────────────
+    // Entry points
+    // ────────────────────────────────────────────────────────────────────────────
+    source_file: ($) =>
+      choice(seq(choice($._void_type, $._int_type, $._bool_type), $.main)),
+
+    main: ($) => seq("main", field("args", $.args), field("block", $.block)),
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Function arguments
+    // ────────────────────────────────────────────────────────────────────────────
     arg: (_$) => "arg",
     args: ($) => seq("(", optional(seq(repeat(seq($.arg, ",")), $.arg)), ")"),
 
+    // ────────────────────────────────────────────────────────────────────────────
+    // Types
+    // ────────────────────────────────────────────────────────────────────────────
     _void_type: (_$) => "void",
     _bool_type: (_$) => "bool",
     _int_type: (_$) => "int",
     _type: ($) => choice($._int_type, $._bool_type),
-    _block: ($) =>
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Blocks & statements
+    // ────────────────────────────────────────────────────────────────────────────
+    block: ($) =>
       seq("{", repeat(seq(field("statement", $._statement), ";")), "}"),
-    identifier: (_$) => /[a-z][a-z,0-9]*/,
+
     _statement: ($) =>
       choice(
         $.return_statement,
@@ -34,6 +50,7 @@ export default grammar({
 
     declaration_statement: ($) =>
       seq(field("type", $._type), field("identifier", $.identifier)),
+
     assignment_statement: ($) =>
       seq(
         field("identifier", $.identifier),
@@ -43,6 +60,13 @@ export default grammar({
 
     return_statement: ($) =>
       seq("return", optional(field("value", $._expression))),
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // Expressions
+    // ────────────────────────────────────────────────────────────────────────────
+    _expression: ($) => choice($._exp, seq("(", $._expression, ")")),
+
+    _exp: ($) => choice($._int_operation, $.num, $._bool_const, $.identifier),
 
     _int_operation: ($) => choice($.int_proc, $.int_div, $.int_sum, $.int_sub),
 
@@ -67,8 +91,10 @@ export default grammar({
         seq(field("left", $._expression), "-", field("right", $._expression))
       ),
 
-    _exp: ($) => choice($._int_operation, $.num, $._bool_const, $.identifier),
-    _expression: ($) => choice($._exp, seq("(", $._expression, ")")),
+    // ────────────────────────────────────────────────────────────────────────────
+    // Terminals
+    // ────────────────────────────────────────────────────────────────────────────
+    identifier: (_$) => /[a-z][a-z,0-9]*/,
 
     true: (_$) => "true",
     false: (_$) => "false",
