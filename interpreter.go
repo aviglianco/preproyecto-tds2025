@@ -13,26 +13,23 @@ func main() {
 
 	// Wrap the unsafe.Pointer from parserlang.Language()
 	rawLang := parserlang.Language()
-
 	lang := sitter.NewLanguage(rawLang)
 
-	fmt.Println(lang.Version())
-
 	// Set the language on the parser
-	e := parser.SetLanguage(lang)
+	_ = parser.SetLanguage(lang)
 
-	if e != nil {
-		fmt.Println(e)
-	}
-
-	fmt.Println(lang)
-
-	code := []byte("void main(){return 1}")
+	code := []byte("int main(){return 1;}")
 
 	tree := parser.Parse(code, nil)
 	defer tree.Close()
 
 	root := tree.RootNode()
-	fmt.Print(root)
 
+	program, err := BuildProgram(root, code)
+	if err != nil {
+		fmt.Println("build error:", err)
+		return
+	}
+
+	fmt.Printf("%#v\n", program)
 }
