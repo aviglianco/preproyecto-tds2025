@@ -19,7 +19,7 @@ func main() {
 	// Set the language on the parser
 	_ = parser.SetLanguage(lang)
 
-	code := []byte("int main(){return 1;}")
+	code := []byte("int main(){return 1+2;}")
 
 	tree := parser.Parse(code, nil)
 	defer tree.Close()
@@ -34,5 +34,6 @@ func main() {
 		return
 	}
 
-	fmt.Printf("%#v\n", program)
+	// Pretty-print the resulting AST
+	fmt.Println(PrettyProgram(program))
 }
