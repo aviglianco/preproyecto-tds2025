@@ -78,15 +78,17 @@ func updateReferenceTable(referenceTable *ReferenceTable, statement Stmt) error 
 		switch val.varType {
 		case TypeInt:
 			newVal, err := interpretExpression(referenceTable, t.Value)
-			if err != nil {
+			if err == nil {
 				val.intVal = newVal.intVal
+				(*referenceTable)[t.Name] = val
 			} else {
 				return fmt.Errorf("Couldn't run statment: %w", err)
 			}
 		case TypeBool:
 			newVal, err := interpretExpression(referenceTable, t.Value)
-			if err != nil {
+			if err == nil {
 				val.boolVal = newVal.boolVal
+				(*referenceTable)[t.Name] = val
 			} else {
 				return fmt.Errorf("Couldn't run statment: %w", err)
 			}
