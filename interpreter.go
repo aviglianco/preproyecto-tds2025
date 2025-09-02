@@ -46,9 +46,11 @@ func interpretExpression(referenceTable *ReferenceTable, exp Expr) (Val, error) 
 		case OpMul:
 			res = *leftVal.intVal * *rightVal.intVal
 
-			val.intVal = &res
-			return val, nil
 		}
+		val.intVal = &res
+		return val, nil
+	default:
+		fmt.Println(exp)
 
 	}
 
@@ -103,7 +105,13 @@ func interpret(program Program) {
 		switch t := statement.(type) {
 		case *Return:
 			fmt.Print("Return value: ")
-			fmt.Print(interpretExpression(&referenceTable, t.Value))
+			ret, _ := interpretExpression(&referenceTable, t.Value)
+			switch ret.varType {
+			case TypeBool:
+				fmt.Print(*ret.boolVal)
+			case TypeInt:
+				fmt.Print(*ret.intVal)
+			}
 		default:
 			updateReferenceTable(&referenceTable, statement)
 
