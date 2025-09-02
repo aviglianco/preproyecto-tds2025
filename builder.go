@@ -1,13 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
-func BuildProgram(root *sitter.Node, source []byte) (*Program, error) {
+func buildProgram(root *sitter.Node, source []byte) (*Program, error) {
 	if root == nil || root.Kind() != "source_file" {
 		return nil, fmt.Errorf("unexpected root: %v", kindOf(root))
 	}
@@ -39,6 +40,17 @@ func BuildProgram(root *sitter.Node, source []byte) (*Program, error) {
 	return &Program{ReturnType: retType, Main: m}, nil
 }
 
+func lineOf(n *sitter.Node, src []byte) int {
+	if n == nil {
+		return 0
+	}
+	start := int(n.StartByte())
+	if start < 0 || start > len(src) {
+		return 0
+	}
+	return bytes.Count(src[:start], []byte{'\n'}) + 1
+}
+
 func buildMain(n *sitter.Node, src []byte) (*Main, error) {
 	if n == nil || n.Kind() != "main" {
 		return nil, fmt.Errorf("expected main, got %v", kindOf(n))
@@ -60,7 +72,7 @@ func buildMain(n *sitter.Node, src []byte) (*Main, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Main{Args: args, Body: blk}, nil
+	return &Main{Args: args, Body: blk, Line: lineOf(n, src)}, nil
 }
 
 func buildBlock(n *sitter.Node, src []byte) (*Block, error) {
@@ -78,7 +90,7 @@ func buildBlock(n *sitter.Node, src []byte) (*Block, error) {
 			stmts = append(stmts, s)
 		}
 	}
-	return &Block{Statements: stmts}, nil
+	return &Block{Statements: stmts, Line: lineOf(n, src)}, nil
 }
 
 func buildStatement(n *sitter.Node, src []byte) (Stmt, bool, error) {
@@ -86,7 +98,7 @@ func buildStatement(n *sitter.Node, src []byte) (Stmt, bool, error) {
 	case "declaration_statement":
 		tn := n.ChildByFieldName("type")
 		id := n.ChildByFieldName("identifier")
-		return &Decl{VarType: toType(tn.Kind()), Name: textOf(id, src)}, true, nil
+		return &Decl{VarType: toType(tn.Kind()), Name: textOf(id, src), Line: lineOf(n, src)}, true, nil
 	case "assignment_statement":
 		id := n.ChildByFieldName("identifier")
 		val := n.ChildByFieldName("value")
@@ -94,17 +106,17 @@ func buildStatement(n *sitter.Node, src []byte) (Stmt, bool, error) {
 		if err != nil {
 			return nil, false, err
 		}
-		return &Assign{Name: textOf(id, src), Value: ex}, true, nil
+		return &Assign{Name: textOf(id, src), Value: ex, Line: lineOf(n, src)}, true, nil
 	case "return_statement":
 		val := n.ChildByFieldName("value")
 		if val == nil {
-			return &Return{Value: nil}, true, nil
+			return &Return{Value: nil, Line: lineOf(n, src)}, true, nil
 		}
 		ex, err := buildExpr(val, src)
 		if err != nil {
 			return nil, false, err
 		}
-		return &Return{Value: ex}, true, nil
+		return &Return{Value: ex, Line: lineOf(n, src)}, true, nil
 	case "skip":
 		return &Skip{}, true, nil
 	default:
@@ -134,14 +146,14 @@ func buildExpr(n *sitter.Node, src []byte) (Expr, error) {
 
 	switch n.Kind() {
 	case "identifier":
-		return &Identifier{Name: textOf(n, src)}, nil
+		return &Identifier{Name: textOf(n, src), Line: lineOf(n, src)}, nil
 	case "num":
 		num, _ := strconv.Atoi(textOf(n, src))
-		return &IntLiteral{Value: num}, nil
+		return &IntLiteral{Value: num, Line: lineOf(n, src)}, nil
 	case "true":
-		return &BoolLiteral{Value: true}, nil
+		return &BoolLiteral{Value: true, Line: lineOf(n, src)}, nil
 	case "false":
-		return &BoolLiteral{Value: false}, nil
+		return &BoolLiteral{Value: false, Line: lineOf(n, src)}, nil
 	case "int_proc", "int_div", "int_sum", "int_sub":
 		l := n.ChildByFieldName("left")
 		r := n.ChildByFieldName("right")
@@ -153,7 +165,7 @@ func buildExpr(n *sitter.Node, src []byte) (Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &BinaryExpr{Kind: toOpKind(n.Kind()), Left: lx, Right: rx}, nil
+		return &BinaryExpr{Kind: toOpKind(n.Kind()), Left: lx, Right: rx, Line: lineOf(n, src)}, nil
 	default:
 		for i := uint(0); i < n.ChildCount(); i++ {
 			ch := n.Child(i)
