@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
@@ -135,7 +136,8 @@ func buildExpr(n *sitter.Node, src []byte) (Expr, error) {
 	case "identifier":
 		return &Identifier{Name: textOf(n, src)}, nil
 	case "num":
-		return &IntLiteral{Value: textOf(n, src)}, nil
+		num, _ := strconv.Atoi(textOf(n, src))
+		return &IntLiteral{Value: num}, nil
 	case "true":
 		return &BoolLiteral{Value: true}, nil
 	case "false":

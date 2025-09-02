@@ -71,7 +71,7 @@ type Identifier struct{ Name string }
 func (*Identifier) isNode() {}
 func (*Identifier) isExpr() {}
 
-type IntLiteral struct{ Value string }
+type IntLiteral struct{ Value int }
 
 func (*IntLiteral) isNode() {}
 func (*IntLiteral) isExpr() {}
