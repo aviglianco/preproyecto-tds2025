@@ -18,7 +18,13 @@ func main() {
 	// Set the language on the parser
 	e := parser.SetLanguage(lang)
 
-	code := []byte("bool main(){int a; a = 2 + 2;return 1+2;}")
+	code := []byte(`bool main(){
+		int a; 
+		a = 2 + 2;
+		bool b;
+		b = true;
+		return b;
+	}`)
 
 	if e != nil {
 		panic(fmt.Errorf("couldn't configure parser: %w", e))

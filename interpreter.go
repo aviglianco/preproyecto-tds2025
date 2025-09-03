@@ -18,9 +18,9 @@ func interpretExpression(referenceTable *ReferenceTable, exp Expr) (Val, error) 
 
 	switch ex := exp.(type) {
 	case *BoolLiteral:
-		return Val{boolVal: &ex.Value}, nil
+		return Val{boolVal: &ex.Value, varType: TypeBool}, nil
 	case *IntLiteral:
-		return Val{intVal: &ex.Value}, nil
+		return Val{intVal: &ex.Value, varType: TypeInt}, nil
 	case *Identifier:
 		return (*referenceTable)[ex.Name], nil
 	case *BinaryExpr:
@@ -73,22 +73,24 @@ func updateReferenceTable(referenceTable *ReferenceTable, statement Stmt) error 
 			return fmt.Errorf("Variable %s not set", t.Name)
 		}
 
-		// TODO: interpret expressions and assign accordingly
 		val := (*referenceTable)[t.Name]
+		newVal, err := interpretExpression(referenceTable, t.Value)
+
+		// "type checking"
+		if newVal.varType != val.varType {
+			return fmt.Errorf("Type mismatch upon assignment to %s", t.Name)
+		}
+
 		switch val.varType {
 		case TypeInt:
-			newVal, err := interpretExpression(referenceTable, t.Value)
 			if err == nil {
-				val.intVal = newVal.intVal
-				(*referenceTable)[t.Name] = val
+				(*referenceTable)[t.Name] = newVal
 			} else {
 				return fmt.Errorf("Couldn't run statment: %w", err)
 			}
 		case TypeBool:
-			newVal, err := interpretExpression(referenceTable, t.Value)
 			if err == nil {
-				val.boolVal = newVal.boolVal
-				(*referenceTable)[t.Name] = val
+				(*referenceTable)[t.Name] = newVal
 			} else {
 				return fmt.Errorf("Couldn't run statment: %w", err)
 			}
