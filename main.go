@@ -16,7 +16,7 @@ const testCode = `bool main(){
 		int c;
 		c = a + 17;
 		return c;
-	;}`
+	}`
 
 func main() {
 	parser := sitter.NewParser()
