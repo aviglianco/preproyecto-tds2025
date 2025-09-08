@@ -1,38 +1,125 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-
-	sitter "github.com/tree-sitter/go-tree-sitter"
-	parserlang "github.com/tree-sitter/tree-sitter-parser/bindings/go"
 )
 
-func main() {
-	parser := sitter.NewParser()
-	defer parser.Close()
+type Val struct {
+	// TODO: cambiar a pascal case
+	boolVal *bool
+	intVal  *int
+	varType Type
+}
 
-	// Wrap the unsafe.Pointer from parserlang.Language()
-	rawLang := parserlang.Language()
+type ReferenceTable map[string]Val
 
-	lang := sitter.NewLanguage(rawLang)
+func interpretExpression(referenceTable *ReferenceTable, exp Expr) (Val, error) {
 
-	fmt.Println(lang.Version())
+	switch ex := exp.(type) {
+	case *BoolLiteral:
+		return Val{boolVal: &ex.Value, varType: TypeBool}, nil
+	case *IntLiteral:
+		return Val{intVal: &ex.Value, varType: TypeInt}, nil
+	case *Identifier:
+		return (*referenceTable)[ex.Name], nil
+	case *BinaryExpr:
 
-	// Set the language on the parser
-	e := parser.SetLanguage(lang)
+		// TODO: error handling
+		leftVal, _ := interpretExpression(referenceTable, ex.Left)
+		rightVal, _ := interpretExpression(referenceTable, ex.Right)
 
-	if e != nil {
-		fmt.Println(e)
+		var val Val
+
+		// for now!
+		val.varType = TypeInt
+
+		var res int
+
+		switch ex.Kind {
+		case OpSub:
+			res = *leftVal.intVal - *rightVal.intVal
+		case OpAdd:
+			res = *leftVal.intVal + *rightVal.intVal
+		case OpDiv:
+			res = *leftVal.intVal / *rightVal.intVal
+		case OpMul:
+			res = *leftVal.intVal * *rightVal.intVal
+
+		}
+		val.intVal = &res
+		return val, nil
+	default:
+		fmt.Println(exp)
+
 	}
 
-	fmt.Println(lang)
+	res := int(0)
+	return Val{intVal: &res, varType: TypeInt}, errors.New("Couldn't evaluate expression, probably new op needs implementation.")
+}
 
-	code := []byte("void main(){return 1}")
+func updateReferenceTable(referenceTable *ReferenceTable, statement Stmt) error {
 
-	tree := parser.Parse(code, nil)
-	defer tree.Close()
+	switch t := statement.(type) {
+	case *Decl:
+		(*referenceTable)[t.Name] = Val{
+			varType: t.VarType,
+			intVal:  nil,
+			boolVal: nil,
+		}
+	case *Assign:
+		_, ok := (*referenceTable)[t.Name]
+		if !ok {
+			return fmt.Errorf("Variable %s not set", t.Name)
+		}
 
-	root := tree.RootNode()
-	fmt.Print(root)
+		val := (*referenceTable)[t.Name]
+		newVal, err := interpretExpression(referenceTable, t.Value)
 
+		// "type checking"
+		if newVal.varType != val.varType {
+			return fmt.Errorf("Type mismatch upon assignment to %s", t.Name)
+		}
+
+		switch val.varType {
+		case TypeInt:
+			if err == nil {
+				(*referenceTable)[t.Name] = newVal
+			} else {
+				return fmt.Errorf("Couldn't run statment: %w", err)
+			}
+		case TypeBool:
+			if err == nil {
+				(*referenceTable)[t.Name] = newVal
+			} else {
+				return fmt.Errorf("Couldn't run statment: %w", err)
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func interpret(program Program) {
+
+	referenceTable := make(ReferenceTable)
+
+	for _, statement := range program.Main.Body.Statements {
+		switch t := statement.(type) {
+		case *Return:
+			fmt.Print("Return value: ")
+			ret, _ := interpretExpression(&referenceTable, t.Value)
+			switch ret.varType {
+			case TypeBool:
+				fmt.Print(*ret.boolVal)
+			case TypeInt:
+				fmt.Print(*ret.intVal)
+			}
+		default:
+			updateReferenceTable(&referenceTable, statement)
+
+		}
+
+	}
 }

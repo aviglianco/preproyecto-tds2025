@@ -1,4 +1,4 @@
-module github.com/tree-sitter/tree-sitter-parser
+module compilador
 
 go 1.23
 

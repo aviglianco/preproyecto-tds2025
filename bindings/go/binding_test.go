@@ -3,8 +3,8 @@ package tree_sitter_parser_test
 import (
 	"testing"
 
+	tree_sitter_parser "compilador/bindings/go"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
-	tree_sitter_parser "github.com/tree-sitter/tree-sitter-parser/bindings/go"
 )
 
 func TestCanLoadGrammar(t *testing.T) {
