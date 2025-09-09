@@ -11,95 +11,68 @@ export default grammar({
   name: "preprojectlang",
 
   rules: {
-    // ────────────────────────────────────────────────────────────────────────────
-    // Entry points
-    // ────────────────────────────────────────────────────────────────────────────
-    source_file: ($) =>
-      choice(seq(choice($._void_type, $._int_type, $._bool_type), $.main)),
+    program: $ => seq("program", "{", repeat($.varDecl), repeat($.methodDecl), "}"),
 
-    main: ($) => seq("main", field("args", $.args), field("block", $.block)),
+    varDecl: $ => seq($.type, $.id, "=", $.expr),
 
-    // ────────────────────────────────────────────────────────────────────────────
-    // Function arguments
-    // ────────────────────────────────────────────────────────────────────────────
-    arg: (_$) => "arg",
-    args: ($) => seq("(", optional(seq(repeat(seq($.arg, ",")), $.arg)), ")"),
-
-    // ────────────────────────────────────────────────────────────────────────────
-    // Types
-    // ────────────────────────────────────────────────────────────────────────────
-    _void_type: (_$) => "void",
-    _bool_type: (_$) => "bool",
-    _int_type: (_$) => "int",
-    _type: ($) => choice($._int_type, $._bool_type),
-
-    // ────────────────────────────────────────────────────────────────────────────
-    // Blocks & statements
-    // ────────────────────────────────────────────────────────────────────────────
-    block: ($) =>
-      seq("{", repeat(seq(field("statement", $._statement), ";")), "}"),
-
-    _statement: ($) =>
+    methodDecl: $ => seq(
+      choice($.type, "void"),
+      $.id,
+      "(",
+      optional(seq(repeat(seq($.type, $.id, ",")), seq($.type, $.id))),
+      ")",
       choice(
-        $.return_statement,
-        "skip",
-        $.declaration_statement,
-        $.assignment_statement,
-        $._expression
-      ),
+        $.block,
+        seq("extern", ";")
+      )
+    ),
 
-    declaration_statement: ($) =>
-      seq(field("type", $._type), field("identifier", $.identifier)),
+    block: $ => seq("{", repeat($.varDecl), repeat($.statement), "}"),
 
-    assignment_statement: ($) =>
-      seq(
-        field("identifier", $.identifier),
-        "=",
-        field("value", $._expression)
-      ),
+    type: _$ => choice("integer", "bool"),
 
-    return_statement: ($) =>
-      seq("return", optional(field("value", $._expression))),
+    statement: $ => choice(
+      seq($.id, $.expr, ";"),
+      seq($.methodCall, ";"),
+      seq("if", "(", $.expr, ")", "then", $.block, optional(seq("else", $.block))),
+      seq("while", $.expr, $.block),
+      seq("return", optional($.expr))
+    ),
 
-    // ────────────────────────────────────────────────────────────────────────────
-    // Expressions
-    // ────────────────────────────────────────────────────────────────────────────
-    _expression: ($) => choice($._exp, seq("(", $._expression, ")")),
+    methodCall: $ => seq($.id, "(", optional($.expr), ")"),
 
-    _exp: ($) => choice($._int_operation, $.num, $._bool_const, $.identifier),
+    expr: $ => choice(
+      $.id,
+      $.methodCall,
+      $.literal,
+      seq($.expr, $.binOp, $.expr),
+      seq("-", $.expr),
+      seq("!", $.expr),
+      seq("(", $.expr, ")")
+    ),
 
-    _int_operation: ($) => choice($.int_proc, $.int_div, $.int_sum, $.int_sub),
+    binOp: $ => choice($.arithOp, $.relOp, $.condOp),
 
-    int_proc: ($) =>
-      prec.right(
-        1,
-        seq(field("left", $._expression), "*", field("right", $._expression))
-      ),
-    int_div: ($) =>
-      prec.right(
-        2,
-        seq(field("left", $._expression), "/", field("right", $._expression))
-      ),
-    int_sum: ($) =>
-      prec.right(
-        3,
-        seq(field("left", $._expression), "+", field("right", $._expression))
-      ),
-    int_sub: ($) =>
-      prec.right(
-        4,
-        seq(field("left", $._expression), "-", field("right", $._expression))
-      ),
+    arithOp: _$ => choice("+", "-", "*", "/", "%"),
 
-    // ────────────────────────────────────────────────────────────────────────────
-    // Terminals
-    // ────────────────────────────────────────────────────────────────────────────
-    identifier: (_$) => /[a-z][a-z,0-9]*/,
+    relOp: _$ => choice("<", ">", "=="),
 
-    true: (_$) => "true",
-    false: (_$) => "false",
-    _bool_const: ($) => choice($.true, $.false),
+    condOp: _$ => choice("&&", "||"),
 
-    num: (_$) => /\d+/,
+    literal: $ => choice($.integerLiteral, $.boolLiteral),
+
+    id: $ => seq($.alpha, repeat(choice($.alpha, $.digit))),
+
+    alpha: _$ => /[a-z, A-Z]/,
+
+    digit: _$ => /[0-9]/,
+
+    integerLiteral: $ => repeat1($.digit),
+
+    boolLiteral: _$ => choice(
+      "true",
+      "false"
+    )
+
   },
 });
