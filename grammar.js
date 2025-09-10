@@ -13,13 +13,13 @@ export default grammar({
   rules: {
     program: $ => seq("program", "{", repeat($.varDecl), repeat($.methodDecl), "}"),
 
-    varDecl: $ => seq($.type, $.id, "=", $.expr),
+    varDecl: $ => seq($.type, $.id, "=", $.expr, ";"),
 
     methodDecl: $ => seq(
       choice($.type, "void"),
       $.id,
       "(",
-      optional(seq(repeat(seq($.type, $.id, ",")), seq($.type, $.id))),
+      optional(seq(repeat(seq($.type, $.id, ",")), $.type, $.id)),
       ")",
       choice(
         $.block,
@@ -31,12 +31,15 @@ export default grammar({
 
     type: _$ => choice("integer", "bool"),
 
+    returnStatement: $ => seq("return", optional($.expr), ";"),
+
+
     statement: $ => choice(
-      seq($.id, $.expr, ";"),
+      seq($.id, "=", $.expr, ";"),
       seq($.methodCall, ";"),
       seq("if", "(", $.expr, ")", "then", $.block, optional(seq("else", $.block))),
       seq("while", $.expr, $.block),
-      seq("return", optional($.expr))
+      $.returnStatement,
     ),
 
     methodCall: $ => seq($.id, "(", optional($.expr), ")"),
@@ -45,13 +48,34 @@ export default grammar({
       $.id,
       $.methodCall,
       $.literal,
-      seq($.expr, $.binOp, $.expr),
-      seq("-", $.expr),
-      seq("!", $.expr),
+      $.binOp,
+      prec.right(seq("-", $.expr)),
+      prec.right(seq("!", $.expr)),
       seq("(", $.expr, ")")
     ),
 
-    binOp: $ => choice($.arithOp, $.relOp, $.condOp),
+    binOp: $ => choice(
+      $.sum,
+      $.sub,
+      $.mul,
+      $.div,
+      $.rem,
+      $.gt,
+      $.lt,
+      $.eq,
+      $.and,
+      $.or
+    ),
+    sum: $ => prec.right(seq($.expr, "+", $.expr)),
+    sub: $ => prec.right(seq($.expr, "-", $.expr)),
+    mul: $ => prec.right(1, seq($.expr, "*", $.expr)),
+    div: $ => prec.right(1, seq($.expr, "/", $.expr)),
+    rem: $ => prec.right(1, seq($.expr, "%", $.expr)),
+    gt: $ => prec.right(1, seq($.expr, ">", $.expr)),
+    lt: $ => prec.right(1, seq($.expr, "<", $.expr)),
+    eq: $ => prec.right(1, seq($.expr, "==", $.expr)),
+    and: $ => prec.right(1, seq($.expr, "&&", $.expr)),
+    or: $ => prec.right(1, seq($.expr, "||", $.expr)),
 
     arithOp: _$ => choice("+", "-", "*", "/", "%"),
 
@@ -61,13 +85,11 @@ export default grammar({
 
     literal: $ => choice($.integerLiteral, $.boolLiteral),
 
-    id: $ => seq($.alpha, repeat(choice($.alpha, $.digit))),
+    id: _$ => /[a-z,A-Z][a-z, A-Z,0-9]*/,
 
-    alpha: _$ => /[a-z, A-Z]/,
+    word: $ => $.id,
 
-    digit: _$ => /[0-9]/,
-
-    integerLiteral: $ => repeat1($.digit),
+    integerLiteral: _$ => /[0-9]+/,
 
     boolLiteral: _$ => choice(
       "true",
