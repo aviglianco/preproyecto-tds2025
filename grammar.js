@@ -65,11 +65,25 @@ export default grammar({
       seq($.identifier, "(", commaSeparatedOptional($._expression), ")"),
 
     _statement: ($) =>
-      seq(choice(
+      seq(optional(choice(
         $.assignment_statement,
         $.method_call,
         $.return_statement,
-      ), ";"),
+        $.if_statement,
+        $.while_statement
+      )), ";"),
+
+    while_statement: $ =>
+      seq(
+        "while", "(", $._expression, ")",
+        $.block
+      ),
+
+    if_statement: ($) =>
+      seq(
+        "if", "(", $._expression, ")",
+        "then", $.block,
+        optional(seq("else", $.block))),
 
     declaration_statement: ($) =>
       seq(field("type", $._type), field("identifier", $.identifier), "=", $._expression, ";"),
@@ -102,11 +116,52 @@ export default grammar({
     // ────────────────────────────────────────────────────────────────────────────
     _expression: ($) => choice($._exp, seq("(", $._expression, ")")),
 
-    _exp: ($) => prec.left(choice($._int_operation, $.num, $._bool_const, $.identifier, $.method_call)),
+    _exp: ($) => prec.left(
+      choice(
+        $._int_operation,
+        $._rel_operation,
+        $._bool_operation,
+        $.num,
+        $._bool_const,
+        $.identifier,
+        $.method_call,
+        seq("-", $._expression),
+        seq("!", $._expression),
+      )
+    ),
 
-    _int_operation: ($) => choice($.int_proc, $.int_div, $.int_sum, $.int_sub),
+    _rel_operation: ($) => choice($.rel_gt, $.rel_lt, $.rel_eq),
 
-    int_proc: ($) =>
+    rel_eq: $ =>
+      prec.left(
+        seq(field("left", $._expression), "==", field("right", $._expression))
+      ),
+
+    rel_lt: ($) =>
+      prec.left(
+        seq(field("left", $._expression), "<", field("right", $._expression))
+      ),
+
+    rel_gt: ($) =>
+      prec.left(
+        seq(field("left", $._expression), ">", field("right", $._expression))
+      ),
+
+    _bool_operation: ($) => choice($.bool_conjunction, $.bool_disjunction),
+
+    bool_conjunction: ($) =>
+      prec.left(
+        seq(field("left", $._expression), "&&", field("right", $._expression))
+      ),
+
+    bool_disjunction: ($) =>
+      prec.left(
+        seq(field("left", $._expression), "||", field("right", $._expression))
+      ),
+
+    _int_operation: ($) => choice($.int_prod, $.int_div, $.int_sum, $.int_sub),
+
+    int_prod: ($) =>
       prec.left(
         1,
         seq(field("left", $._expression), "*", field("right", $._expression))
