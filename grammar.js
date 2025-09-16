@@ -13,6 +13,8 @@ const commaSeparatedOptional = (rule) =>
 export default grammar({
   name: "preprojectlang",
 
+  extras: ($) => [/\s/, $.comment],
+
   rules: {
     // ────────────────────────────────────────────────────────────────────────────
     // Entry points
@@ -198,5 +200,10 @@ export default grammar({
     _bool_const: ($) => choice($.true, $.false),
 
     num: (_$) => /\d+/,
+
+    comment: ($) =>
+      token(
+        choice(seq("//", /.*/), seq("/*", /[^*]*\*+([^/*][^*]*\*+)*/, "/"))
+      ),
   },
 });
