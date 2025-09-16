@@ -7,6 +7,11 @@
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-check
 
+const commaSeparatedOptional = rule => optional(
+  seq(repeat(seq(rule, ",")), rule)
+)
+
+
 export default grammar({
   name: "preprojectlang",
 
@@ -14,8 +19,19 @@ export default grammar({
     // ────────────────────────────────────────────────────────────────────────────
     // Entry points
     // ────────────────────────────────────────────────────────────────────────────
-    source_file: ($) =>
-      choice(seq(choice($._void_type, $._int_type, $._bool_type), $.main)),
+    //source_file: ($) =>
+    //  choice(seq(choice($._void_type, $._int_type, $._bool_type), $.main)),
+
+    source_file: $ => $.program,
+
+    program: $ => seq(
+      "program",
+      "{",
+      repeat($.declaration_statement),
+      repeat($.method_declaration_statement),
+      "}"
+    ),
+
 
     main: ($) => seq("main", field("args", $.args), field("block", $.block)),
 
@@ -37,25 +53,39 @@ export default grammar({
     // Blocks & statements
     // ────────────────────────────────────────────────────────────────────────────
     block: ($) =>
-      seq("{", repeat(seq(field("statement", $._statement), ";")), "}"),
+      seq("{", repeat(seq(field("statement", $._statement))), "}"),
+
+    method_call: $ =>
+      seq($.identifier, "(", commaSeparatedOptional($._expression), ")"),
 
     _statement: ($) =>
-      choice(
-        $.return_statement,
-        "skip",
-        $.declaration_statement,
+      seq(choice(
         $.assignment_statement,
-        $._expression
-      ),
+        $.method_call,
+        $.return_statement,
+      ), ";"),
 
     declaration_statement: ($) =>
-      seq(field("type", $._type), field("identifier", $.identifier)),
+      seq(field("type", $._type), field("identifier", $.identifier), "=", $._expression, ";"),
+
+    parameter: $ => seq(
+      field("type", $._type),
+      field("identifier", $.identifier),
+    ),
+
+    method_declaration_statement: $ =>
+      seq(
+        field("type", $._type),
+        field("identifier", $.identifier),
+        seq("(", commaSeparatedOptional($.parameter), ")"),
+        choice($.block, seq("extern", ";"))
+      ),
 
     assignment_statement: ($) =>
       seq(
         field("identifier", $.identifier),
         "=",
-        field("value", $._expression)
+        field("value", $._expression),
       ),
 
     return_statement: ($) =>
@@ -66,35 +96,33 @@ export default grammar({
     // ────────────────────────────────────────────────────────────────────────────
     _expression: ($) => choice($._exp, seq("(", $._expression, ")")),
 
-    _exp: ($) => choice($._int_operation, $.num, $._bool_const, $.identifier),
+    _exp: ($) => prec.left(choice($._int_operation, $.num, $._bool_const, $.identifier)),
 
     _int_operation: ($) => choice($.int_proc, $.int_div, $.int_sum, $.int_sub),
 
     int_proc: ($) =>
-      prec.right(
+      prec.left(
         1,
         seq(field("left", $._expression), "*", field("right", $._expression))
       ),
     int_div: ($) =>
-      prec.right(
-        2,
+      prec.left(
+        1,
         seq(field("left", $._expression), "/", field("right", $._expression))
       ),
     int_sum: ($) =>
-      prec.right(
-        3,
+      prec.left(
         seq(field("left", $._expression), "+", field("right", $._expression))
       ),
     int_sub: ($) =>
-      prec.right(
-        4,
+      prec.left(
         seq(field("left", $._expression), "-", field("right", $._expression))
       ),
 
     // ────────────────────────────────────────────────────────────────────────────
     // Terminals
     // ────────────────────────────────────────────────────────────────────────────
-    identifier: (_$) => /[a-z][a-z,0-9]*/,
+    identifier: (_$) => /[a-z,A-Z][a-z,A-Z,0-9]*/,
 
     true: (_$) => "true",
     false: (_$) => "false",
