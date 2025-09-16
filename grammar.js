@@ -46,14 +46,20 @@ export default grammar({
     // ────────────────────────────────────────────────────────────────────────────
     _void_type: (_$) => "void",
     _bool_type: (_$) => "bool",
-    _int_type: (_$) => "int",
+    _int_type: (_$) => "integer",
     _type: ($) => choice($._int_type, $._bool_type),
 
     // ────────────────────────────────────────────────────────────────────────────
     // Blocks & statements
     // ────────────────────────────────────────────────────────────────────────────
     block: ($) =>
-      seq("{", repeat(seq(field("statement", $._statement))), "}"),
+      seq(
+        "{",
+        repeat(field("declaration", $.declaration_statement)),
+        repeat(field("statement", $._statement)
+        ),
+        "}"
+      ),
 
     method_call: $ =>
       seq($.identifier, "(", commaSeparatedOptional($._expression), ")"),
@@ -75,7 +81,7 @@ export default grammar({
 
     method_declaration_statement: $ =>
       seq(
-        field("type", $._type),
+        field("type", choice($._type, $._void_type)),
         field("identifier", $.identifier),
         seq("(", commaSeparatedOptional($.parameter), ")"),
         choice($.block, seq("extern", ";"))
@@ -96,7 +102,7 @@ export default grammar({
     // ────────────────────────────────────────────────────────────────────────────
     _expression: ($) => choice($._exp, seq("(", $._expression, ")")),
 
-    _exp: ($) => prec.left(choice($._int_operation, $.num, $._bool_const, $.identifier)),
+    _exp: ($) => prec.left(choice($._int_operation, $.num, $._bool_const, $.identifier, $.method_call)),
 
     _int_operation: ($) => choice($.int_proc, $.int_div, $.int_sum, $.int_sub),
 
@@ -122,7 +128,7 @@ export default grammar({
     // ────────────────────────────────────────────────────────────────────────────
     // Terminals
     // ────────────────────────────────────────────────────────────────────────────
-    identifier: (_$) => /[a-z,A-Z][a-z,A-Z,0-9]*/,
+    identifier: (_$) => /[a-z,A-Z,_][a-z,A-Z,_,0-9]*/,
 
     true: (_$) => "true",
     false: (_$) => "false",
