@@ -64,17 +64,12 @@ export default grammar({
       seq($.identifier, "(", commaSeparatedOptional($._expression), ")"),
 
     _statement: ($) =>
-      seq(
-        optional(
-          choice(
-            $.assignment_statement,
-            $.method_call,
-            $.return_statement,
-            $.if_statement,
-            $.while_statement
-          )
-        ),
-        ";"
+      choice(
+        seq($.assignment_statement, ";"),
+        seq($.method_call, ";"),
+        seq($.return_statement, ";"),
+        $.if_statement,
+        $.while_statement
       ),
 
     while_statement: ($) => seq("while", "(", $._expression, ")", $.block),
