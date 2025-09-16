@@ -7,10 +7,8 @@
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-check
 
-const commaSeparatedOptional = rule => optional(
-  seq(repeat(seq(rule, ",")), rule)
-)
-
+const commaSeparatedOptional = (rule) =>
+  optional(seq(repeat(seq(rule, ",")), rule));
 
 export default grammar({
   name: "preprojectlang",
@@ -22,16 +20,16 @@ export default grammar({
     //source_file: ($) =>
     //  choice(seq(choice($._void_type, $._int_type, $._bool_type), $.main)),
 
-    source_file: $ => $.program,
+    source_file: ($) => $.program,
 
-    program: $ => seq(
-      "program",
-      "{",
-      repeat($.declaration_statement),
-      repeat($.method_declaration_statement),
-      "}"
-    ),
-
+    program: ($) =>
+      seq(
+        "program",
+        "{",
+        repeat($.declaration_statement),
+        repeat($.method_declaration_statement),
+        "}"
+      ),
 
     main: ($) => seq("main", field("args", $.args), field("block", $.block)),
 
@@ -56,44 +54,53 @@ export default grammar({
       seq(
         "{",
         repeat(field("declaration", $.declaration_statement)),
-        repeat(field("statement", $._statement)
-        ),
+        repeat(field("statement", $._statement)),
         "}"
       ),
 
-    method_call: $ =>
+    method_call: ($) =>
       seq($.identifier, "(", commaSeparatedOptional($._expression), ")"),
 
     _statement: ($) =>
-      seq(optional(choice(
-        $.assignment_statement,
-        $.method_call,
-        $.return_statement,
-        $.if_statement,
-        $.while_statement
-      )), ";"),
-
-    while_statement: $ =>
       seq(
-        "while", "(", $._expression, ")",
-        $.block
+        optional(
+          choice(
+            $.assignment_statement,
+            $.method_call,
+            $.return_statement,
+            $.if_statement,
+            $.while_statement
+          )
+        ),
+        ";"
       ),
+
+    while_statement: ($) => seq("while", "(", $._expression, ")", $.block),
 
     if_statement: ($) =>
       seq(
-        "if", "(", $._expression, ")",
-        "then", $.block,
-        optional(seq("else", $.block))),
+        "if",
+        "(",
+        $._expression,
+        ")",
+        "then",
+        $.block,
+        optional(seq("else", $.block))
+      ),
 
     declaration_statement: ($) =>
-      seq(field("type", $._type), field("identifier", $.identifier), "=", $._expression, ";"),
+      seq(
+        field("type", $._type),
+        field("identifier", $.identifier),
+        "=",
+        $._expression,
+        ";"
+      ),
 
-    parameter: $ => seq(
-      field("type", $._type),
-      field("identifier", $.identifier),
-    ),
+    parameter: ($) =>
+      seq(field("type", $._type), field("identifier", $.identifier)),
 
-    method_declaration_statement: $ =>
+    method_declaration_statement: ($) =>
       seq(
         field("type", choice($._type, $._void_type)),
         field("identifier", $.identifier),
@@ -105,7 +112,7 @@ export default grammar({
       seq(
         field("identifier", $.identifier),
         "=",
-        field("value", $._expression),
+        field("value", $._expression)
       ),
 
     return_statement: ($) =>
@@ -116,23 +123,24 @@ export default grammar({
     // ────────────────────────────────────────────────────────────────────────────
     _expression: ($) => choice($._exp, seq("(", $._expression, ")")),
 
-    _exp: ($) => prec.left(
-      choice(
-        $._int_operation,
-        $._rel_operation,
-        $._bool_operation,
-        $.num,
-        $._bool_const,
-        $.identifier,
-        $.method_call,
-        seq("-", $._expression),
-        seq("!", $._expression),
-      )
-    ),
+    _exp: ($) =>
+      prec.left(
+        choice(
+          $._int_operation,
+          $._rel_operation,
+          $._bool_operation,
+          $.num,
+          $._bool_const,
+          $.identifier,
+          $.method_call,
+          seq("-", $._expression),
+          seq("!", $._expression)
+        )
+      ),
 
     _rel_operation: ($) => choice($.rel_gt, $.rel_lt, $.rel_eq),
 
-    rel_eq: $ =>
+    rel_eq: ($) =>
       prec.left(
         seq(field("left", $._expression), "==", field("right", $._expression))
       ),
@@ -183,7 +191,7 @@ export default grammar({
     // ────────────────────────────────────────────────────────────────────────────
     // Terminals
     // ────────────────────────────────────────────────────────────────────────────
-    identifier: (_$) => /[a-z,A-Z,_][a-z,A-Z,_,0-9]*/,
+    identifier: (_$) => /[a-zA-Z_][a-zA-Z_0-9]*/,
 
     true: (_$) => "true",
     false: (_$) => "false",
