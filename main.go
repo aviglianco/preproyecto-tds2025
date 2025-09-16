@@ -51,6 +51,12 @@ func main() {
 	// Get the root node
 	root := tree.RootNode()
 
+	if root.HasError() {
+		fmt.Fprintf(os.Stderr, "could not parse file %s: syntax error\n", inputArg)
+
+		os.Exit(1)
+	}
+
 	// Pretty-print the syntax tree and write to .sint file
 	output := []byte(root.ToSexp())
 	base := inputArg[:len(inputArg)-len(filepath.Ext(inputArg))]
