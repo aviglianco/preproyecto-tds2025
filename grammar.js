@@ -90,7 +90,7 @@ export default grammar({
         field("type", $._type),
         field("identifier", $.identifier),
         "=",
-        $._expression,
+        field("value", $._expression),
         ";"
       ),
 
