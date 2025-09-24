@@ -159,6 +159,7 @@ type Expr interface {
 
 type IntLiteral struct {
 	Value int
+	Type  TypeKind
 }
 
 func (n *IntLiteral) NodeType() string { return "IntLiteral" }
@@ -166,6 +167,7 @@ func (n *IntLiteral) isExpr()          {}
 
 type BoolLiteral struct {
 	Value bool
+	Type  TypeKind
 }
 
 func (n *BoolLiteral) NodeType() string { return "BoolLiteral" }
@@ -200,6 +202,7 @@ func (op UnaryOp) String() string {
 type UnaryExpr struct {
 	Op   UnaryOp
 	Expr Expr
+	Type TypeKind
 }
 
 func (n *UnaryExpr) NodeType() string { return "UnaryExpr" }
@@ -254,6 +257,7 @@ type BinaryExpr struct {
 	Left  Expr
 	Op    BinOp
 	Right Expr
+	Type  TypeKind
 }
 
 func (n *BinaryExpr) NodeType() string { return "BinaryExpr" }
@@ -263,6 +267,7 @@ func (n *BinaryExpr) isExpr()          {}
 type CallExpr struct {
 	Callee Identifier
 	Args   []Expr
+	Type   TypeKind
 }
 
 func (n *CallExpr) NodeType() string { return "CallExpr" }

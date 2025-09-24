@@ -285,11 +285,11 @@ func buildExpr(n *sitter.Node, src []byte) (Expr, error) {
 		// parse int
 		var v int
 		fmt.Sscanf(text(n, src), "%d", &v)
-		return &IntLiteral{Value: v}, nil
+		return &IntLiteral{Value: v, Type: TypeInteger}, nil
 	case "true":
-		return &BoolLiteral{Value: true}, nil
+		return &BoolLiteral{Value: true, Type: TypeBool}, nil
 	case "false":
-		return &BoolLiteral{Value: false}, nil
+		return &BoolLiteral{Value: false, Type: TypeBool}, nil
 	case "identifier":
 		return &IdentExpr{Name: Identifier(text(n, src))}, nil
 	case "method_call":
@@ -336,27 +336,38 @@ func buildBinaryExpr(n *sitter.Node, src []byte) (Expr, error) {
 		return nil, err
 	}
 	var op BinOp
+	var t TypeKind
+
 	switch n.Kind() {
 	case "int_sum":
 		op = BinAdd
+		t = TypeInteger
 	case "int_sub":
 		op = BinSub
+		t = TypeInteger
 	case "int_prod":
 		op = BinMul
+		t = TypeInteger
 	case "int_div":
 		op = BinDiv
+		t = TypeInteger
 	case "rel_eq":
 		op = BinEq
+		t = TypeBool
 	case "rel_lt":
 		op = BinLT
+		t = TypeBool
 	case "rel_gt":
 		op = BinGT
+		t = TypeBool
 	case "bool_conjunction":
 		op = BinAnd
+		t = TypeBool
 	case "bool_disjunction":
 		op = BinOr
+		t = TypeBool
 	}
-	return &BinaryExpr{Left: l, Op: op, Right: r}, nil
+	return &BinaryExpr{Left: l, Op: op, Right: r, Type: t}, nil
 }
 
 func buildUnaryExpr(n *sitter.Node, src []byte) (Expr, error) {
@@ -368,15 +379,18 @@ func buildUnaryExpr(n *sitter.Node, src []byte) (Expr, error) {
 		return nil, err
 	}
 	var op UnaryOp
+	var t TypeKind
 	switch text(opNode, src) {
 	case "-":
 		op = UnaryNeg
+		t = TypeInteger
 	case "!":
 		op = UnaryNot
+		t = TypeBool
 	default:
 		return nil, fmt.Errorf("unknown unary op: %s", text(opNode, src))
 	}
-	return &UnaryExpr{Op: op, Expr: expr}, nil
+	return &UnaryExpr{Op: op, Expr: expr, Type: t}, nil
 }
 
 func mustExpr(n *sitter.Node, src []byte) Expr {
