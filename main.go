@@ -57,6 +57,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	ast, err := BuildAST(root, code)
+
+	if err != nil {
+		fmt.Printf("Coudldn't buil AST: %s", err.Error())
+	}
+	fmt.Println(ast)
+
 	// Pretty-print the syntax tree and write to .sint file
 	output := []byte(root.ToSexp())
 	base := inputArg[:len(inputArg)-len(filepath.Ext(inputArg))]
