@@ -51,3 +51,6 @@ zig-out/
 *.tar.gz
 *.tgz
 *.zip
+
+# Compiler results
+result/

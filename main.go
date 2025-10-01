@@ -62,12 +62,29 @@ func main() {
 	if err != nil {
 		fmt.Printf("Coudldn't buil AST: %s", err.Error())
 	}
-	fmt.Println(ast)
 
-	// Pretty-print the syntax tree and write to .sint file
-	output := []byte(root.ToSexp())
+	// Prepare result directory and base filename
 	base := inputArg[:len(inputArg)-len(filepath.Ext(inputArg))]
-	outputPath := base + ".sint"
+	baseName := filepath.Base(base)
+	resultsDir := "result"
+	if err := os.MkdirAll(resultsDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "error creating results directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Write AST (semantic stage) to .sem file in result folder
+	semPath := filepath.Join(resultsDir, baseName+".sem")
+	if ast != nil {
+		if err := os.WriteFile(semPath, []byte(ast.String()), 0644); err != nil {
+			fmt.Fprintf(os.Stderr, "error writing AST output: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("AST written to:", semPath)
+	}
+
+	// Pretty-print the syntax tree and write to .sint file in result folder
+	output := []byte(root.ToSexp())
+	outputPath := filepath.Join(resultsDir, baseName+".sint")
 	if err := os.WriteFile(outputPath, output, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "error writing output: %v\n", err)
 		os.Exit(1)
