@@ -30,6 +30,14 @@ func text(node *sitter.Node, src []byte) string {
 	return string(src[node.StartByte():node.EndByte()])
 }
 
+// nodeLine returns the 1-based start line for a CST node.
+func nodeLine(n *sitter.Node) int {
+	if n == nil {
+		return 0
+	}
+	return int(n.Range().StartPoint.Row) + 1
+}
+
 // ----------------------------------------------------------------------
 // Builders
 // ----------------------------------------------------------------------
@@ -39,7 +47,7 @@ func buildProgram(n *sitter.Node, src []byte) (*Program, error) {
 		return nil, fmt.Errorf("expected program node, got %s", n.Kind())
 	}
 
-	p := &Program{}
+	p := &Program{NodeBase: NodeBase{Line: nodeLine(n)}}
 
 	for i := uint(0); i < n.NamedChildCount(); i++ {
 		c := n.NamedChild(i)
@@ -79,7 +87,7 @@ func buildVarDecl(n *sitter.Node, src []byte) (*VarDecl, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &VarDecl{Type: t, Name: name, Value: val}, nil
+	return &VarDecl{NodeBase: NodeBase{Line: nodeLine(n)}, Type: t, Name: name, Value: val}, nil
 }
 
 func buildType(n *sitter.Node) (TypeKind, error) {
@@ -139,11 +147,12 @@ func buildMethodDecl(n *sitter.Node, src []byte) (*MethodDecl, error) {
 	}
 
 	return &MethodDecl{
-		Return: t,
-		Name:   name,
-		Params: params,
-		Body:   body,
-		Extern: extern,
+		NodeBase: NodeBase{Line: nodeLine(n)},
+		Return:   t,
+		Name:     name,
+		Params:   params,
+		Body:     body,
+		Extern:   extern,
 	}, nil
 }
 
@@ -155,7 +164,7 @@ func buildParameter(n *sitter.Node, src []byte) (*Parameter, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Parameter{Type: t, Name: Identifier(text(idNode, src))}, nil
+	return &Parameter{NodeBase: NodeBase{Line: nodeLine(n)}, Type: t, Name: Identifier(text(idNode, src))}, nil
 }
 
 // ----------------------------------------------------------------------
@@ -163,7 +172,7 @@ func buildParameter(n *sitter.Node, src []byte) (*Parameter, error) {
 // ----------------------------------------------------------------------
 
 func buildBlock(n *sitter.Node, src []byte) (*Block, error) {
-	b := &Block{}
+	b := &Block{NodeBase: NodeBase{Line: nodeLine(n)}}
 	for i := uint(0); i < n.NamedChildCount(); i++ {
 		c := n.NamedChild(i)
 		switch c.Kind() {
@@ -215,19 +224,19 @@ func buildAssignment(n *sitter.Node, src []byte) (*Assignment, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Assignment{Target: Identifier(text(idNode, src)), Value: val}, nil
+	return &Assignment{NodeBase: NodeBase{Line: nodeLine(n)}, Target: Identifier(text(idNode, src)), Value: val}, nil
 }
 
 func buildReturnStmt(n *sitter.Node, src []byte) (*ReturnStmt, error) {
 	valNode := n.ChildByFieldName("value")
 	if valNode == nil {
-		return &ReturnStmt{}, nil
+		return &ReturnStmt{NodeBase: NodeBase{Line: nodeLine(n)}}, nil
 	}
 	val, err := buildExpr(valNode, src)
 	if err != nil {
 		return nil, err
 	}
-	return &ReturnStmt{Value: val}, nil
+	return &ReturnStmt{NodeBase: NodeBase{Line: nodeLine(n)}, Value: val}, nil
 }
 
 func buildIfStmt(n *sitter.Node, src []byte) (*IfStmt, error) {
@@ -256,7 +265,7 @@ func buildIfStmt(n *sitter.Node, src []byte) (*IfStmt, error) {
 		elseBlk, _ = buildBlock(blocks[1], src)
 	}
 
-	return &IfStmt{Cond: cond, Then: thenBlk, Else: elseBlk}, nil
+	return &IfStmt{NodeBase: NodeBase{Line: nodeLine(n)}, Cond: cond, Then: thenBlk, Else: elseBlk}, nil
 }
 
 func buildWhileStmt(n *sitter.Node, src []byte) (*WhileStmt, error) {
@@ -270,7 +279,7 @@ func buildWhileStmt(n *sitter.Node, src []byte) (*WhileStmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &WhileStmt{Cond: cond, Body: body}, nil
+	return &WhileStmt{NodeBase: NodeBase{Line: nodeLine(n)}, Cond: cond, Body: body}, nil
 }
 
 // ----------------------------------------------------------------------
@@ -286,13 +295,13 @@ func buildExpr(n *sitter.Node, src []byte) (Expr, error) {
 		// parse int
 		var v int
 		fmt.Sscanf(text(n, src), "%d", &v)
-		return &IntLiteral{Value: v, Type: TypeInteger}, nil
+		return &IntLiteral{NodeBase: NodeBase{Line: nodeLine(n)}, Value: v, Type: TypeInteger}, nil
 	case "true":
-		return &BoolLiteral{Value: true, Type: TypeBool}, nil
+		return &BoolLiteral{NodeBase: NodeBase{Line: nodeLine(n)}, Value: true, Type: TypeBool}, nil
 	case "false":
-		return &BoolLiteral{Value: false, Type: TypeBool}, nil
+		return &BoolLiteral{NodeBase: NodeBase{Line: nodeLine(n)}, Value: false, Type: TypeBool}, nil
 	case "identifier":
-		return &IdentExpr{Name: Identifier(text(n, src))}, nil
+		return &IdentExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Name: Identifier(text(n, src))}, nil
 	case "method_call":
 		return buildCallExpr(n, src)
 	case "int_sum", "int_sub", "int_prod", "int_div",
@@ -303,7 +312,7 @@ func buildExpr(n *sitter.Node, src []byte) (Expr, error) {
 		return buildUnaryExpr(n, src)
 	case "(": // parenthesized
 		inner := n.NamedChild(0)
-		return &ParenExpr{Inner: mustExpr(inner, src)}, nil
+		return &ParenExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Inner: mustExpr(inner, src)}, nil
 	}
 	return nil, fmt.Errorf("unhandled expression node type: %s", n.Kind())
 }
@@ -322,7 +331,7 @@ func buildCallExpr(n *sitter.Node, src []byte) (Expr, error) {
 		}
 		args = append(args, e)
 	}
-	return &CallExpr{Callee: Identifier(text(idNode, src)), Args: args}, nil
+	return &CallExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Callee: Identifier(text(idNode, src)), Args: args}, nil
 }
 
 func buildBinaryExpr(n *sitter.Node, src []byte) (Expr, error) {
@@ -368,7 +377,7 @@ func buildBinaryExpr(n *sitter.Node, src []byte) (Expr, error) {
 		op = BinOr
 		t = TypeBool
 	}
-	return &BinaryExpr{Left: l, Op: op, Right: r, Type: t}, nil
+	return &BinaryExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Left: l, Op: op, Right: r, Type: t}, nil
 }
 
 func buildUnaryExpr(n *sitter.Node, src []byte) (Expr, error) {
@@ -391,7 +400,7 @@ func buildUnaryExpr(n *sitter.Node, src []byte) (Expr, error) {
 	default:
 		return nil, fmt.Errorf("unknown unary op: %s", text(opNode, src))
 	}
-	return &UnaryExpr{Op: op, Expr: expr, Type: t}, nil
+	return &UnaryExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Op: op, Expr: expr, Type: t}, nil
 }
 
 func mustExpr(n *sitter.Node, src []byte) Expr {

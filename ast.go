@@ -11,6 +11,7 @@ type Node interface {
 // ===== Program / Top-level =====
 
 type Program struct {
+	NodeBase
 	// e.g. "program { ... }"
 	Declarations []*VarDecl    // top-level variable declarations
 	Methods      []*MethodDecl // top-level method (function) declarations
@@ -54,6 +55,7 @@ func (id Identifier) String() string   { return string(id) }
 //
 //	<type> <identifier> = <expression> ;
 type VarDecl struct {
+	NodeBase
 	Type  TypeKind
 	Name  Identifier
 	Value Expr
@@ -63,6 +65,7 @@ func (d *VarDecl) NodeType() string { return "VarDecl" }
 
 // Parameter corresponds to `parameter` (type + identifier)
 type Parameter struct {
+	NodeBase
 	Type TypeKind
 	Name Identifier
 }
@@ -75,6 +78,7 @@ func (p *Parameter) NodeType() string { return "Parameter" }
 //   <type_or_void> <identifier> "(" commaSeparatedOptional(parameter) ")" ( block | "extern" ";" )
 
 type MethodDecl struct {
+	NodeBase
 	Return TypeKind
 	Name   Identifier
 	Params []*Parameter
@@ -92,6 +96,7 @@ type Stmt interface {
 }
 
 type Block struct {
+	NodeBase
 	Declarations []*VarDecl // declarations local to the block (corresponds to repeat(field("declaration", ...)))
 	Stmts        []Stmt
 }
@@ -100,6 +105,7 @@ func (b *Block) NodeType() string { return "Block" }
 func (b *Block) isStmt()          {}
 
 type Assignment struct {
+	NodeBase
 	Target Identifier // field("identifier", $.identifier)
 	Value  Expr       // field("value", $._expression)
 }
@@ -108,6 +114,7 @@ func (a *Assignment) NodeType() string { return "Assignment" }
 func (a *Assignment) isStmt()          {}
 
 type ExprStmt struct {
+	NodeBase
 	Expr Expr // used for method_call followed by ';' or any expression statement
 }
 
@@ -116,6 +123,7 @@ func (e *ExprStmt) isStmt()          {}
 
 // ReturnStmt corresponds to `return` optional expression + ';'
 type ReturnStmt struct {
+	NodeBase
 	Value Expr // nil if no value
 }
 
@@ -123,6 +131,7 @@ func (r *ReturnStmt) NodeType() string { return "ReturnStmt" }
 func (r *ReturnStmt) isStmt()          {}
 
 type IfStmt struct {
+	NodeBase
 	Cond Expr
 	Then *Block
 	Else *Block // nil if absent
@@ -132,6 +141,7 @@ func (i *IfStmt) NodeType() string { return "IfStmt" }
 func (i *IfStmt) isStmt()          {}
 
 type WhileStmt struct {
+	NodeBase
 	Cond Expr
 	Body *Block
 }
@@ -151,6 +161,7 @@ type Expr interface {
 }
 
 type IntLiteral struct {
+	NodeBase
 	Value int
 	Type  TypeKind
 }
@@ -159,6 +170,7 @@ func (n *IntLiteral) NodeType() string { return "IntLiteral" }
 func (n *IntLiteral) isExpr()          {}
 
 type BoolLiteral struct {
+	NodeBase
 	Value bool
 	Type  TypeKind
 }
@@ -167,6 +179,7 @@ func (n *BoolLiteral) NodeType() string { return "BoolLiteral" }
 func (n *BoolLiteral) isExpr()          {}
 
 type IdentExpr struct {
+	NodeBase
 	Name Identifier
 }
 
@@ -193,6 +206,7 @@ func (op UnaryOp) String() string {
 }
 
 type UnaryExpr struct {
+	NodeBase
 	Op   UnaryOp
 	Expr Expr
 	Type TypeKind
@@ -247,6 +261,7 @@ func (op BinOp) String() string {
 }
 
 type BinaryExpr struct {
+	NodeBase
 	Left  Expr
 	Op    BinOp
 	Right Expr
@@ -258,6 +273,7 @@ func (n *BinaryExpr) isExpr()          {}
 
 // CallExpr / Method call: identifier "(" args... ")"
 type CallExpr struct {
+	NodeBase
 	Callee Identifier
 	Args   []Expr
 	Type   TypeKind
@@ -268,6 +284,7 @@ func (n *CallExpr) isExpr()          {}
 
 // Parenthesized expression (explicit in grammar as "(" _expression ")")
 type ParenExpr struct {
+	NodeBase
 	Inner Expr
 }
 
@@ -275,6 +292,11 @@ func (n *ParenExpr) NodeType() string { return "ParenExpr" }
 func (n *ParenExpr) isExpr()          {}
 
 // ===== Helpers (optional) =====
+
+// NodeBase contains fields common to all AST nodes.
+type NodeBase struct {
+	Line int // 1-based line number of the starting token for this node
+}
 
 // Convenience constructors (not required but often handy)
 func NewIntLit(v int) *IntLiteral     { return &IntLiteral{Value: v} }
