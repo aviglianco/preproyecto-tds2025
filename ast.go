@@ -41,13 +41,6 @@ func (t TypeKind) String() string {
 	}
 }
 
-// A simple wrapper node for a type if you want a Node for types.
-type TypeNode struct {
-	Kind TypeKind
-}
-
-func (t *TypeNode) NodeType() string { return "Type" }
-
 // ===== Identifiers =====
 
 type Identifier string
@@ -61,7 +54,7 @@ func (id Identifier) String() string   { return string(id) }
 //
 //	<type> <identifier> = <expression> ;
 type VarDecl struct {
-	Type  *TypeNode
+	Type  TypeKind
 	Name  Identifier
 	Value Expr
 }
@@ -70,7 +63,7 @@ func (d *VarDecl) NodeType() string { return "VarDecl" }
 
 // Parameter corresponds to `parameter` (type + identifier)
 type Parameter struct {
-	Type *TypeNode
+	Type TypeKind
 	Name Identifier
 }
 
@@ -82,7 +75,7 @@ func (p *Parameter) NodeType() string { return "Parameter" }
 //   <type_or_void> <identifier> "(" commaSeparatedOptional(parameter) ")" ( block | "extern" ";" )
 
 type MethodDecl struct {
-	Return *TypeNode // pointer so we can represent void (TypeVoid) or nil if desired
+	Return TypeKind
 	Name   Identifier
 	Params []*Parameter
 	Body   *Block // nil if extern or if you want to represent "extern" via Extern=true
@@ -291,19 +284,16 @@ func NewIdent(name string) *IdentExpr { return &IdentExpr{Name: Identifier(name)
 func (p *Program) String() string {
 	s := "program {\n"
 	for _, d := range p.Declarations {
-		s += "  var " + d.Type.Kind.String() + " " + string(d.Name) + " = <expr>\n"
+		s += "  var " + d.Type.String() + " " + string(d.Name) + " = <expr>\n"
 	}
 	for _, m := range p.Methods {
-		ret := "void"
-		if m.Return != nil {
-			ret = m.Return.Kind.String()
-		}
+		ret := m.Return.String()
 		params := ""
 		for i, pr := range m.Params {
 			if i > 0 {
 				params += ", "
 			}
-			params += pr.Type.Kind.String() + " " + string(pr.Name)
+			params += pr.Type.String() + " " + string(pr.Name)
 		}
 		body := "{ ... }"
 		if m.Extern {

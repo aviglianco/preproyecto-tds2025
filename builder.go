@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
@@ -69,7 +70,7 @@ func buildVarDecl(n *sitter.Node, src []byte) (*VarDecl, error) {
 	idNode := n.ChildByFieldName("identifier")
 	valNode := n.ChildByFieldName("value")
 
-	t, err := buildType(typNode, src)
+	t, err := buildType(typNode)
 	if err != nil {
 		return nil, err
 	}
@@ -81,19 +82,19 @@ func buildVarDecl(n *sitter.Node, src []byte) (*VarDecl, error) {
 	return &VarDecl{Type: t, Name: name, Value: val}, nil
 }
 
-func buildType(n *sitter.Node, src []byte) (*TypeNode, error) {
+func buildType(n *sitter.Node) (TypeKind, error) {
 	if n == nil {
-		return nil, fmt.Errorf("nil type node")
+		return 0, fmt.Errorf("nil type node")
 	}
 	switch n.Kind() {
 	case "void":
-		return &TypeNode{Kind: TypeVoid}, nil
+		return TypeVoid, nil
 	case "bool":
-		return &TypeNode{Kind: TypeBool}, nil
+		return TypeBool, nil
 	case "integer":
-		return &TypeNode{Kind: TypeInteger}, nil
+		return TypeInteger, nil
 	default:
-		return nil, fmt.Errorf("unknown type node: %s", n.Kind())
+		return 0, fmt.Errorf("unknown type node: %s", n.Kind())
 	}
 }
 
@@ -101,7 +102,7 @@ func buildMethodDecl(n *sitter.Node, src []byte) (*MethodDecl, error) {
 	retNode := n.ChildByFieldName("type")
 	idNode := n.ChildByFieldName("identifier")
 
-	t, err := buildType(retNode, src)
+	t, err := buildType(retNode)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +151,7 @@ func buildParameter(n *sitter.Node, src []byte) (*Parameter, error) {
 	tNode := n.ChildByFieldName("type")
 	idNode := n.ChildByFieldName("identifier")
 
-	t, err := buildType(tNode, src)
+	t, err := buildType(tNode)
 	if err != nil {
 		return nil, err
 	}
