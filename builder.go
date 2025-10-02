@@ -6,6 +6,11 @@ import (
 	sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
+type Builder struct {
+	symbolTable Env
+	src         []byte
+}
+
 // BuildAST takes a CST node (root of a parsed source file) and returns our AST.
 func BuildAST(root *sitter.Node, src []byte) (*Program, error) {
 	if root.Kind() != "source_file" {
@@ -16,7 +21,15 @@ func BuildAST(root *sitter.Node, src []byte) (*Program, error) {
 	if root.ChildCount() == 0 {
 		return nil, fmt.Errorf("empty source file")
 	}
-	return buildProgram(root.Child(0), src)
+
+	symbolTable := Env{Table: make(map[Identifier]Symbol)}
+
+	builder := Builder{
+		src:         src,
+		symbolTable: symbolTable,
+	}
+
+	return builder.buildProgram(root.Child(0))
 }
 
 // ----------------------------------------------------------------------
@@ -42,7 +55,7 @@ func nodeLine(n *sitter.Node) int {
 // Builders
 // ----------------------------------------------------------------------
 
-func buildProgram(n *sitter.Node, src []byte) (*Program, error) {
+func (builder Builder) buildProgram(n *sitter.Node) (*Program, error) {
 	if n.Kind() != "program" {
 		return nil, fmt.Errorf("expected program node, got %s", n.Kind())
 	}
@@ -56,13 +69,13 @@ func buildProgram(n *sitter.Node, src []byte) (*Program, error) {
 		}
 		switch c.Kind() {
 		case "declaration_statement":
-			decl, err := buildVarDecl(c, src)
+			decl, err := builder.buildVarDecl(c)
 			if err != nil {
 				return nil, err
 			}
 			p.Declarations = append(p.Declarations, decl)
 		case "method_declaration_statement":
-			m, err := buildMethodDecl(c, src)
+			m, err := builder.buildMethodDecl(c)
 			if err != nil {
 				return nil, err
 			}
@@ -73,24 +86,32 @@ func buildProgram(n *sitter.Node, src []byte) (*Program, error) {
 	return p, nil
 }
 
-func buildVarDecl(n *sitter.Node, src []byte) (*VarDecl, error) {
+func (builder Builder) buildVarDecl(n *sitter.Node) (*VarDecl, error) {
 	typNode := n.ChildByFieldName("type")
 	idNode := n.ChildByFieldName("identifier")
 	valNode := n.ChildByFieldName("value")
 
-	t, err := buildType(typNode)
+	t, err := builder.buildType(typNode)
 	if err != nil {
 		return nil, err
 	}
-	name := Identifier(text(idNode, src))
-	val, err := buildExpr(valNode, src)
+	name := Identifier(text(idNode, builder.src))
+	val, err := builder.buildExpr(valNode)
+
+	_, ok := builder.symbolTable.Table[name]
+	if ok {
+		return nil, fmt.Errorf("cannot double declare :%s", name)
+	} else {
+		builder.symbolTable.Insert(name, Symbol{Type: t, isVar: true})
+	}
+
 	if err != nil {
 		return nil, err
 	}
 	return &VarDecl{NodeBase: NodeBase{Line: nodeLine(n)}, Type: t, Name: name, Value: val}, nil
 }
 
-func buildType(n *sitter.Node) (TypeKind, error) {
+func (builder Builder) buildType(n *sitter.Node) (TypeKind, error) {
 	if n == nil {
 		return 0, fmt.Errorf("nil type node")
 	}
@@ -106,22 +127,30 @@ func buildType(n *sitter.Node) (TypeKind, error) {
 	}
 }
 
-func buildMethodDecl(n *sitter.Node, src []byte) (*MethodDecl, error) {
+func (builder Builder) buildMethodDecl(n *sitter.Node) (*MethodDecl, error) {
 	retNode := n.ChildByFieldName("type")
 	idNode := n.ChildByFieldName("identifier")
 
-	t, err := buildType(retNode)
+	t, err := builder.buildType(retNode)
 	if err != nil {
 		return nil, err
 	}
-	name := Identifier(text(idNode, src))
+	name := Identifier(text(idNode, builder.src))
+
+	// Type checking within the same frame
+	_, ok := builder.symbolTable.Table[name]
+	if ok {
+		return nil, fmt.Errorf("cannot redefine:%s", name)
+	} else { // insert function into symbol table
+		builder.symbolTable.Insert(name, Symbol{Type: t, isVar: false})
+	}
 
 	// parameters
 	var params []*Parameter
 	for i := uint(0); i < n.NamedChildCount(); i++ {
 		c := n.NamedChild(i)
 		if c.Kind() == "parameter" {
-			p, err := buildParameter(c, src)
+			p, err := builder.buildParameter(c)
 			if err != nil {
 				return nil, err
 			}
@@ -138,7 +167,7 @@ func buildMethodDecl(n *sitter.Node, src []byte) (*MethodDecl, error) {
 			extern = true
 		}
 		if c.Kind() == "block" {
-			b, err := buildBlock(c, src)
+			b, err := builder.buildBlock(c)
 			if err != nil {
 				return nil, err
 			}
@@ -156,96 +185,99 @@ func buildMethodDecl(n *sitter.Node, src []byte) (*MethodDecl, error) {
 	}, nil
 }
 
-func buildParameter(n *sitter.Node, src []byte) (*Parameter, error) {
+func (builder Builder) buildParameter(n *sitter.Node) (*Parameter, error) {
 	tNode := n.ChildByFieldName("type")
 	idNode := n.ChildByFieldName("identifier")
 
-	t, err := buildType(tNode)
+	t, err := builder.buildType(tNode)
 	if err != nil {
 		return nil, err
 	}
-	return &Parameter{NodeBase: NodeBase{Line: nodeLine(n)}, Type: t, Name: Identifier(text(idNode, src))}, nil
+	return &Parameter{NodeBase: NodeBase{Line: nodeLine(n)}, Type: t, Name: Identifier(text(idNode, builder.src))}, nil
 }
 
 // ----------------------------------------------------------------------
 // Blocks & Statements
 // ----------------------------------------------------------------------
 
-func buildBlock(n *sitter.Node, src []byte) (*Block, error) {
+func (builder Builder) buildBlock(n *sitter.Node) (*Block, error) {
 	b := &Block{NodeBase: NodeBase{Line: nodeLine(n)}}
 	for i := uint(0); i < n.NamedChildCount(); i++ {
 		c := n.NamedChild(i)
+		builder.symbolTable = Env{Prev: &builder.symbolTable, Table: make(Table)}
 		switch c.Kind() {
 		case "declaration_statement":
-			d, err := buildVarDecl(c, src)
+			d, err := builder.buildVarDecl(c)
 			if err != nil {
 				return nil, err
 			}
 			b.Declarations = append(b.Declarations, d)
 		case "assignment_statement":
-			as, err := buildAssignment(c, src)
+			as, err := builder.buildAssignment(c)
 			if err != nil {
 				return nil, err
 			}
 			b.Stmts = append(b.Stmts, as)
 		case "return_statement":
-			rs, err := buildReturnStmt(c, src)
+			rs, err := builder.buildReturnStmt(c)
 			if err != nil {
 				return nil, err
 			}
 			b.Stmts = append(b.Stmts, rs)
 		case "if_statement":
-			is, err := buildIfStmt(c, src)
+			is, err := builder.buildIfStmt(c)
 			if err != nil {
 				return nil, err
 			}
 			b.Stmts = append(b.Stmts, is)
 		case "while_statement":
-			ws, err := buildWhileStmt(c, src)
+			ws, err := builder.buildWhileStmt(c)
 			if err != nil {
 				return nil, err
 			}
 			b.Stmts = append(b.Stmts, ws)
 		case "method_call":
-			e, err := buildExpr(c, src)
+			e, err := builder.buildExpr(c)
 			if err != nil {
 				return nil, err
 			}
 			b.Stmts = append(b.Stmts, &ExprStmt{Expr: e})
 		}
 	}
+
+	builder.symbolTable = *builder.symbolTable.Prev
 	return b, nil
 }
 
-func buildAssignment(n *sitter.Node, src []byte) (*Assignment, error) {
+func (builder Builder) buildAssignment(n *sitter.Node) (*Assignment, error) {
 	idNode := n.ChildByFieldName("identifier")
 	valNode := n.ChildByFieldName("value")
-	val, err := buildExpr(valNode, src)
+	val, err := builder.buildExpr(valNode)
 	if err != nil {
 		return nil, err
 	}
-	return &Assignment{NodeBase: NodeBase{Line: nodeLine(n)}, Target: Identifier(text(idNode, src)), Value: val}, nil
+	return &Assignment{NodeBase: NodeBase{Line: nodeLine(n)}, Target: Identifier(text(idNode, builder.src)), Value: val}, nil
 }
 
-func buildReturnStmt(n *sitter.Node, src []byte) (*ReturnStmt, error) {
+func (builder Builder) buildReturnStmt(n *sitter.Node) (*ReturnStmt, error) {
 	valNode := n.ChildByFieldName("value")
 	if valNode == nil {
 		return &ReturnStmt{NodeBase: NodeBase{Line: nodeLine(n)}}, nil
 	}
-	val, err := buildExpr(valNode, src)
+	val, err := builder.buildExpr(valNode)
 	if err != nil {
 		return nil, err
 	}
 	return &ReturnStmt{NodeBase: NodeBase{Line: nodeLine(n)}, Value: val}, nil
 }
 
-func buildIfStmt(n *sitter.Node, src []byte) (*IfStmt, error) {
+func (builder Builder) buildIfStmt(n *sitter.Node) (*IfStmt, error) {
 	condNode := n.ChildByFieldName("condition")
 	if condNode == nil {
 		// fallback: in your grammar it's field-less, just the first child
 		condNode = n.NamedChild(0)
 	}
-	cond, err := buildExpr(condNode, src)
+	cond, err := builder.buildExpr(condNode)
 	if err != nil {
 		return nil, err
 	}
@@ -259,23 +291,23 @@ func buildIfStmt(n *sitter.Node, src []byte) (*IfStmt, error) {
 		}
 	}
 	if len(blocks) > 0 {
-		thenBlk, _ = buildBlock(blocks[0], src)
+		thenBlk, _ = builder.buildBlock(blocks[0])
 	}
 	if len(blocks) > 1 {
-		elseBlk, _ = buildBlock(blocks[1], src)
+		elseBlk, _ = builder.buildBlock(blocks[1])
 	}
 
 	return &IfStmt{NodeBase: NodeBase{Line: nodeLine(n)}, Cond: cond, Then: thenBlk, Else: elseBlk}, nil
 }
 
-func buildWhileStmt(n *sitter.Node, src []byte) (*WhileStmt, error) {
+func (builder Builder) buildWhileStmt(n *sitter.Node) (*WhileStmt, error) {
 	condNode := n.NamedChild(0)
-	cond, err := buildExpr(condNode, src)
+	cond, err := builder.buildExpr(condNode)
 	if err != nil {
 		return nil, err
 	}
 	bodyNode := n.NamedChild(n.NamedChildCount() - 1)
-	body, err := buildBlock(bodyNode, src)
+	body, err := builder.buildBlock(bodyNode)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +318,7 @@ func buildWhileStmt(n *sitter.Node, src []byte) (*WhileStmt, error) {
 // Expressions
 // ----------------------------------------------------------------------
 
-func buildExpr(n *sitter.Node, src []byte) (Expr, error) {
+func (builder Builder) buildExpr(n *sitter.Node) (Expr, error) {
 	if n == nil {
 		return nil, fmt.Errorf("nil expression node")
 	}
@@ -294,30 +326,35 @@ func buildExpr(n *sitter.Node, src []byte) (Expr, error) {
 	case "num":
 		// parse int
 		var v int
-		fmt.Sscanf(text(n, src), "%d", &v)
+		fmt.Sscanf(text(n, builder.src), "%d", &v)
 		return &IntLiteral{NodeBase: NodeBase{Line: nodeLine(n)}, Value: v, Type: TypeInteger}, nil
 	case "true":
 		return &BoolLiteral{NodeBase: NodeBase{Line: nodeLine(n)}, Value: true, Type: TypeBool}, nil
 	case "false":
 		return &BoolLiteral{NodeBase: NodeBase{Line: nodeLine(n)}, Value: false, Type: TypeBool}, nil
 	case "identifier":
-		return &IdentExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Name: Identifier(text(n, src))}, nil
+		name := Identifier(text(n, builder.src))
+		symbol, ok := builder.symbolTable.Lookup(name)
+		if !ok {
+			return nil, fmt.Errorf("could not resolve type of %s", name)
+		}
+		return &IdentExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Name: name, Type: symbol.Type}, nil
 	case "method_call":
-		return buildCallExpr(n, src)
+		return builder.buildCallExpr(n)
 	case "int_sum", "int_sub", "int_prod", "int_div",
 		"rel_eq", "rel_lt", "rel_gt",
 		"bool_conjunction", "bool_disjunction":
-		return buildBinaryExpr(n, src)
+		return builder.buildBinaryExpr(n)
 	case "unary_expression": // if you decide to name it so
-		return buildUnaryExpr(n, src)
+		return builder.buildUnaryExpr(n)
 	case "(": // parenthesized
 		inner := n.NamedChild(0)
-		return &ParenExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Inner: mustExpr(inner, src)}, nil
+		return &ParenExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Inner: builder.mustExpr(inner)}, nil
 	}
 	return nil, fmt.Errorf("unhandled expression node type: %s", n.Kind())
 }
 
-func buildCallExpr(n *sitter.Node, src []byte) (Expr, error) {
+func (builder Builder) buildCallExpr(n *sitter.Node) (Expr, error) {
 	idNode := n.Child(0)
 	args := []Expr{}
 	for i := uint(0); i < n.NamedChildCount(); i++ {
@@ -325,23 +362,23 @@ func buildCallExpr(n *sitter.Node, src []byte) (Expr, error) {
 		if c.Kind() == "identifier" && i == 0 {
 			continue
 		}
-		e, err := buildExpr(c, src)
+		e, err := builder.buildExpr(c)
 		if err != nil {
 			return nil, err
 		}
 		args = append(args, e)
 	}
-	return &CallExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Callee: Identifier(text(idNode, src)), Args: args}, nil
+	return &CallExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Callee: Identifier(text(idNode, builder.src)), Args: args}, nil
 }
 
-func buildBinaryExpr(n *sitter.Node, src []byte) (Expr, error) {
+func (builder Builder) buildBinaryExpr(n *sitter.Node) (Expr, error) {
 	left := n.NamedChild(0)
 	right := n.NamedChild(1)
-	l, err := buildExpr(left, src)
+	l, err := builder.buildExpr(left)
 	if err != nil {
 		return nil, err
 	}
-	r, err := buildExpr(right, src)
+	r, err := builder.buildExpr(right)
 	if err != nil {
 		return nil, err
 	}
@@ -380,17 +417,17 @@ func buildBinaryExpr(n *sitter.Node, src []byte) (Expr, error) {
 	return &BinaryExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Left: l, Op: op, Right: r, Type: t}, nil
 }
 
-func buildUnaryExpr(n *sitter.Node, src []byte) (Expr, error) {
+func (builder Builder) buildUnaryExpr(n *sitter.Node) (Expr, error) {
 	// depending on how you labelled it; grammar has "-" $._expression and "!" $._expression
 	opNode := n.Child(0)
 	exprNode := n.Child(1)
-	expr, err := buildExpr(exprNode, src)
+	expr, err := builder.buildExpr(exprNode)
 	if err != nil {
 		return nil, err
 	}
 	var op UnaryOp
 	var t TypeKind
-	switch text(opNode, src) {
+	switch text(opNode, builder.src) {
 	case "-":
 		op = UnaryNeg
 		t = TypeInteger
@@ -398,12 +435,12 @@ func buildUnaryExpr(n *sitter.Node, src []byte) (Expr, error) {
 		op = UnaryNot
 		t = TypeBool
 	default:
-		return nil, fmt.Errorf("unknown unary op: %s", text(opNode, src))
+		return nil, fmt.Errorf("unknown unary op: %s", text(opNode, builder.src))
 	}
 	return &UnaryExpr{NodeBase: NodeBase{Line: nodeLine(n)}, Op: op, Expr: expr, Type: t}, nil
 }
 
-func mustExpr(n *sitter.Node, src []byte) Expr {
-	e, _ := buildExpr(n, src)
+func (builder Builder) mustExpr(n *sitter.Node) Expr {
+	e, _ := builder.buildExpr(n)
 	return e
 }

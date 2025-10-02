@@ -181,6 +181,7 @@ func (n *BoolLiteral) isExpr()          {}
 type IdentExpr struct {
 	NodeBase
 	Name Identifier
+	Type TypeKind
 }
 
 func (n *IdentExpr) NodeType() string { return "IdentExpr" }
