@@ -158,6 +158,23 @@ func (builder Builder) buildMethodDecl(n *sitter.Node) (*MethodDecl, error) {
 		}
 	}
 
+	if len(params) > 0 {
+		paramNames := make(map[Identifier]struct{})
+		for _, p := range params {
+			if _, clash := paramNames[p.Name]; clash {
+				return nil, fmt.Errorf("duplicate parameter name: %s", p.Name)
+			}
+			paramNames[p.Name] = struct{}{}
+		}
+
+		prevEnv := builder.symbolTable
+		funcEnv := Env{Prev: &prevEnv, Table: make(Table)}
+		for _, p := range params {
+			funcEnv.Insert(p.Name, Symbol{Type: p.Type, isVar: true})
+		}
+		builder.symbolTable = funcEnv
+	}
+
 	// extern or block
 	var body *Block
 	extern := false
