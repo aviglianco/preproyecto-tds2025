@@ -7,6 +7,7 @@ program
         integer print_int() extern;
 
         integer inc(integer x) {
+                bool x = true;
                 integer y = x + 1;
                 return y;
         }

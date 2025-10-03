@@ -137,12 +137,9 @@ func (builder Builder) buildMethodDecl(n *sitter.Node) (*MethodDecl, error) {
 	}
 	name := Identifier(text(idNode, builder.src))
 
-	// Type checking within the same frame
 	_, ok := builder.symbolTable.Table[name]
 	if ok {
 		return nil, fmt.Errorf("cannot redefine:%s", name)
-	} else { // insert function into symbol table
-		builder.symbolTable.Insert(name, Symbol{Type: t, isVar: false})
 	}
 
 	// parameters
@@ -157,6 +154,12 @@ func (builder Builder) buildMethodDecl(n *sitter.Node) (*MethodDecl, error) {
 			params = append(params, p)
 		}
 	}
+
+	paramInfos := make([]ParamInfo, 0, len(params))
+	for _, p := range params {
+		paramInfos = append(paramInfos, ParamInfo{Name: p.Name, Type: p.Type})
+	}
+	builder.symbolTable.Insert(name, Symbol{Type: t, isVar: false, Func: &FuncInfo{Return: t, Params: paramInfos, Arity: len(paramInfos)}})
 
 	if len(params) > 0 {
 		paramNames := make(map[Identifier]struct{})

@@ -5,9 +5,21 @@ type Env struct {
 	Prev  *Env
 }
 
+type ParamInfo struct {
+	Name Identifier
+	Type TypeKind
+}
+
+type FuncInfo struct {
+	Return TypeKind
+	Params []ParamInfo
+	Arity  int
+}
+
 type Symbol struct {
 	Type  TypeKind
 	isVar bool
+	Func  *FuncInfo
 }
 
 type Table map[Identifier]Symbol
@@ -27,7 +39,7 @@ func (env Env) Lookup(name Identifier) (Symbol, bool) {
 			break
 		}
 	}
-	return Symbol{0, true}, false
+	return Symbol{Type: 0, isVar: true}, false
 }
 
 func (env Env) Insert(name Identifier, symbol Symbol) {
