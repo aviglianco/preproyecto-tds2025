@@ -202,9 +202,11 @@ func (builder Builder) buildParameter(n *sitter.Node) (*Parameter, error) {
 
 func (builder Builder) buildBlock(n *sitter.Node) (*Block, error) {
 	b := &Block{NodeBase: NodeBase{Line: nodeLine(n)}}
+	prevEnv := builder.symbolTable
+	builder.symbolTable = Env{Prev: &prevEnv, Table: make(Table)}
+
 	for i := uint(0); i < n.NamedChildCount(); i++ {
 		c := n.NamedChild(i)
-		builder.symbolTable = Env{Prev: &builder.symbolTable, Table: make(Table)}
 		switch c.Kind() {
 		case "declaration_statement":
 			d, err := builder.buildVarDecl(c)
@@ -245,7 +247,6 @@ func (builder Builder) buildBlock(n *sitter.Node) (*Block, error) {
 		}
 	}
 
-	builder.symbolTable = *builder.symbolTable.Prev
 	return b, nil
 }
 
