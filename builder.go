@@ -83,6 +83,8 @@ func (builder Builder) buildProgram(n *sitter.Node) (*Program, error) {
 		}
 	}
 
+	// expose built symbol table at program level
+	p.Symbols = builder.symbolTable
 	return p, nil
 }
 

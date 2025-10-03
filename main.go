@@ -63,6 +63,14 @@ func main() {
 		fmt.Printf("Coudldn't buil AST: %s", err.Error())
 	}
 
+	// Run semantic analysis
+	if ast != nil {
+		if err := Analyze(ast); err != nil {
+			fmt.Fprintf(os.Stderr, "semantic error: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
 	// Prepare result directory and base filename
 	base := inputArg[:len(inputArg)-len(filepath.Ext(inputArg))]
 	baseName := filepath.Base(base)

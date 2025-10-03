@@ -4,10 +4,9 @@ program
 
         integer get_int() extern;
 
-        integer print_int() extern;
+        integer print_int(integer i) extern;
 
         integer inc(integer x) {
-                bool x = true;
                 integer y = x + 1;
                 return y;
         }
@@ -21,7 +20,6 @@ program
               y = inc(y);
             }
           }
-
 
           print_int(y);
         }

@@ -15,6 +15,7 @@ type Program struct {
 	// e.g. "program { ... }"
 	Declarations []*VarDecl    // top-level variable declarations
 	Methods      []*MethodDecl // top-level method (function) declarations
+	Symbols      Env           // top-level symbol table after building
 }
 
 func (p *Program) NodeType() string { return "Program" }
@@ -298,6 +299,9 @@ func (n *ParenExpr) isExpr()          {}
 type NodeBase struct {
 	Line int // 1-based line number of the starting token for this node
 }
+
+// LineNumber exposes the line for nodes embedding NodeBase.
+func (n NodeBase) LineNumber() int { return n.Line }
 
 // Convenience constructors (not required but often handy)
 func NewIntLit(v int) *IntLiteral     { return &IntLiteral{Value: v} }
